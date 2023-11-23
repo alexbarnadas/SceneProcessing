@@ -9,3 +9,6 @@ Instructions:
 3. Press esc
 
 The video will reproduce and also a window with the bird view coordinates of the detections will be drawn.
+
+Every detection will be tracked and the orientation of the track will be shown with an arrow. 
+Also the velocity in pixels per second will be plot frame by frame next to every detection
