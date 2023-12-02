@@ -45,8 +45,8 @@ model1 = YOLO('yolov8n.pt')
 model2 = YOLO('yolov8n-seg.pt')
 
 # Define the video files for the trackers
-video_file1 = "Videos_UPM/camkitchen_rec1.mp4"  # Path to video file, 0 for webcam
-video_file2 = "Videos_UPM/camkitchen_rec2.mp4" # Path to video file, 0 for webcam, 1 for external camera
+video_file1 = "TestVideos/camkitchen_rec1.mp4"  # Path to video file, 0 for webcam
+video_file2 = "TestVideos/camkitchen_rec2.mp4" # Path to video file, 0 for webcam, 1 for external camera
 
 # Create the tracker threads
 tracker_thread1 = threading.Thread(target=run_tracker_in_thread, args=(video_file1, model1, 1), daemon=True)

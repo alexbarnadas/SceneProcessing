@@ -40,7 +40,7 @@ class SceneCalibration():
 
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(self.img, str(x) + ',' +str(y), (x,y), font,1, (255, 0, 0), 2)
-            cv2.circle(self.img, (x,y),4,(0,0,255),-1)
+            cv2.circle(self.img, (x,y),3,(0,0,255),-1)
             cv2.imshow('image', self.img)
 
     def get_perspective(self):
