@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 class SceneCalibration():
     def __init__(self, img):
         self.img = img
@@ -34,13 +35,13 @@ class SceneCalibration():
         if event == cv2.EVENT_LBUTTONDOWN:
 
             print(x, ' ', y)
-            self.points.append([x,y])
-            if len(self.points)==4:
+            self.points.append([x, y])
+            if len(self.points) == 4:
                 self.get_perspective()
 
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(self.img, str(x) + ',' +str(y), (x,y), font,1, (255, 0, 0), 2)
-            cv2.circle(self.img, (x, y),3, (0, 0, 255), -1)
+            cv2.putText(self.img, str(x) + ',' + str(y), (x, y), font, 1, (255, 0, 0), 2)
+            cv2.circle(self.img, (x, y), 3, (0, 0, 255), -1)
             cv2.imshow('image', self.img)
 
     def get_perspective(self):
@@ -62,7 +63,7 @@ class SceneCalibration():
 if __name__ == "__main__":
     f = cv2.VideoCapture('./Terraza.MOV')
     rval, frame = f.read()
-    img = frame  #cv2.imread('.\standard_test_images\peppers.png', 1)
+    img = frame  # cv2.imread('.\standard_test_images\peppers.png', 1)
 
     Calibration = SceneCalibration(img)
     print(Calibration.perspective_matrix)
