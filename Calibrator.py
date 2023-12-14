@@ -40,29 +40,29 @@ class SceneCalibration():
 
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(self.img, str(x) + ',' +str(y), (x,y), font,1, (255, 0, 0), 2)
-            cv2.circle(self.img, (x,y),3,(0,0,255),-1)
+            cv2.circle(self.img, (x, y),3, (0, 0, 255), -1)
             cv2.imshow('image', self.img)
 
     def get_perspective(self):
         width = self.points[1][0] - self.points[0][0]
         depth = self.points[2][1] - self.points[0][1]
-        depth  = width * self.real_w2d_proportion
+        depth = width * self.real_w2d_proportion
         pts1 = np.float32(self.points[0:4])
-        pts2 = np.float32([[0,0], [width,0], [0,depth], [width, depth]])
+        pts2 = np.float32([[0, 0], [width, 0], [0, depth], [width, depth]])
 
         self.perspective_matrix = cv2. getPerspectiveTransform(pts1, pts2)
         bird_view = cv2.warpPerspective(self.img, self.perspective_matrix, (width, depth))
 
         cv2.imshow('output', bird_view)
     
-    def scene2real(self, x,y):
-        transposed_coordinates = np.dot(self.perspective_matrix, np.array([x,y,1]).T)
-        return transposed_coordinates # (x,y,scale)
+    def scene2real(self, x, y):
+        transposed_coordinates = np.dot(self.perspective_matrix, np.array([x, y, 1]).T)
+        return transposed_coordinates  # (x,y,scale)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     f = cv2.VideoCapture('./Terraza.MOV')
     rval, frame = f.read()
-    img = frame #cv2.imread('.\standard_test_images\peppers.png', 1)
+    img = frame  #cv2.imread('.\standard_test_images\peppers.png', 1)
 
     Calibration = SceneCalibration(img)
     print(Calibration.perspective_matrix)
@@ -70,7 +70,7 @@ if __name__=="__main__":
     # Load video and detect, then transform the data with
     x = 1082
     y = 746
-    new_coords = Calibration.scene2real(x,y)
+    new_coords = Calibration.scene2real(x, y)
 
     print('\n')
     print(new_coords)
