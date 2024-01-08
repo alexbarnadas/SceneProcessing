@@ -1,9 +1,22 @@
+from collections import defaultdict
 import threading
+import numpy as np
+import math
+import yaml
+import csv
+import pandas as pd
 import cv2
 from ultralytics import YOLO
 
+from Calibrator import SceneCalibration
 
-def run_tracker_in_thread(filename, model, file_index):
+dt = 20  # number of frames to calculate mean velocity
+history_save_interval = (60 * 30)  # Save every 60 seconds at 30 fps (1800 frames)
+
+reid_stack = []  # Stack all detections so reid can be performed.
+
+
+def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
     """
     Runs a video file or webcam stream concurrently with the YOLOv8 model using threading.
 
@@ -11,45 +24,166 @@ def run_tracker_in_thread(filename, model, file_index):
     tracking. The function runs in its own thread for concurrent processing.
 
     Args:
-        filename (str): The path to the video file or the identifier for the webcam/external camera source.
+        source (str): The path to the video file or the identifier for the webcam/external camera source.
         model (obj): The YOLOv8 model object.
-        file_index (int): An index to uniquely identify the file being processed, used for display purposes.
+        stream_id (int): An index to uniquely identify the file being processed, used for display purposes.
 
     Note:
         Press 'q' to quit the video display window.
+
+    Next Steps:
+        Allow show multiple windows: https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
     """
-    video = cv2.VideoCapture(filename)  # Read the video file
+    track_history = defaultdict(lambda: [])
+    track_history_warped = defaultdict(lambda: [])
 
-    while True:
-        ret, frame = video.read()  # Read the video frames
+    cap = cv2.VideoCapture(source)
+    frame_size, fps = (int(cap.get(3)), int(cap.get(4))), cap.get(5)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter('Demo.mp4', fourcc, fps, frame_size)
+    writer_map = cv2.VideoWriter('Demo_map.mp4', fourcc, fps, (600, 600))
 
-        # Exit the loop if no more frames in either video
-        if not ret:
-            break
+    # Scene and camera calibration
+    success, first_frame = cap.read()
+    if not success:
+        print('Error while loading calibration frame')
+        exit()
 
-        # Track objects in frames if available
-        results = model.track(frame, persist=True)
-        res_plotted = results[0].plot()
-        cv2.imshow(f"Tracking_Stream_{file_index}", res_plotted)
+    perspective_matrix = np.array([[1.5911, 4.5363, -1667.1],
+                                   [-1.5115, 7.449, -15.472],
+                                   [1.6072e05, 0.0044881, 1]])
 
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            break
+    bird_view = cv2.warpPerspective(first_frame, perspective_matrix, (600, 600))
+    (threshold, bird_map) = cv2.threshold(bird_view, 0, 200, cv2.THRESH_BINARY)
+
+    # Output result for Angelo
+    people_flow_history = []
+
+    header = ['FrameNumber', 'ScreenCoords', 'SceneCoords', 'Velocity', 'Orientation']
+    csvfile = open('PeopleFlowHistory_' + str(stream_id) + '.csv', 'w')
+    c = csv.DictWriter(csvfile, header)
+    c.writeheader()
+    csvfile.close()
+
+    frame_id = 0
+    while cap.isOpened():
+        success, frame = cap.read()
+        if not success: break
+
+        frame = cv2.resize(frame, frame_size, interpolation=cv2.INTER_LINEAR)
+
+        results = model.track(frame, persist=True, verbose=False)
+
+        # Get the boxes and track IDs
+        if results[0].boxes.id is not None:
+            boxes = results[0].boxes.xywh.cpu()
+            track_ids = results[0].boxes.id.int().cpu().tolist()
+            classes = results[0].boxes.cls.tolist()
+            keypoints = results[0].keypoints.xy
+        else:
+            continue
+
+        # Visualize the results on the frame
+        annotated_frame = results[0].plot()
+
+        # Plot the tracks
+        bird_map_written = bird_map.copy()
+        for box, track_id, cls, keypt in zip(boxes, track_ids, classes, keypoints):
+            if cls != 0.0: continue
+
+            x_box, y_box, w, h = box.cpu()
+
+            box_img = frame[int(y_box)-int(h/2):int(y_box)+int(h/2), int(x_box)-int(w/2):int(x_box)+int(w/2)]
+            reid_stack.append([box_img, track_id, stream_id])
+
+            if keypt[15][0] != 0 and keypt[16][0] != 0:
+                feet = (keypt[15] + keypt[16]).div(2).cpu()
+                x, y = feet
+            else: continue
+
+            # Bird coordinates transformation
+            wx, wy, w_scale = np.matmul(perspective_matrix, np.array([x, y, 1]))
+            bird_coords = [int(wx / w_scale), int(wy / w_scale)]
+            # print('Coords:', [int(x), int(y)], '->', bird_coords)
+            # bird_map = cv2.circle(bird_map, bird_coords, 4, (0, 255, 0), 2)
+
+            x1, y1 = bird_coords
+
+            track = track_history[track_id]
+            track_warped = track_history_warped[track_id]
+
+            if len(track) > dt:  # Calculate track velocity
+                x2, y2 = track_warped[-dt][0], track_warped[-dt][1]
+                dist = math.sqrt(math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2))
+                velocity = int(dist * fps / dt)  # Velocity assuming fps is consistent with real time
+                orientation = int(math.degrees(math.atan2(y2 - y1, x2 - x1)))  # Orientation in rad
+                bird_map_written = cv2.arrowedLine(bird_map_written,
+                                                   (int(x1), int(y1)),
+                                                   (int(x2 - (x2 - x1) * dt / 15), int(y2 - (y2 - y1) * dt / 15)),
+                                                   (0, 0, 255), 3)
+                bird_map_written = cv2.putText(bird_map_written, '' +
+                                               'Vel' + str(velocity) + 'pix/s',
+                                               # 'Dir'+str(orientation),
+                                               (int(x1 + w / 4), int(y1)),
+                                               cv2.FONT_HERSHEY_SIMPLEX, 1, (130, 130, 130), 2)
+            else:
+                velocity = orientation = None
+
+            track.append((float(x), float(y)))  # x, y center-ground point
+            track_warped.append(bird_coords)
+
+            if len(track) > 30:
+                track.pop(0)
+                track_warped.pop(0)
+
+            # Draw the tracking lines
+            points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
+            cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=3)
+
+            points_warped = np.hstack(track_warped).astype(np.int32).reshape((-1, 1, 2))
+            cv2.polylines(bird_map_written, [points_warped], isClosed=False, color=(230, 230, 230), thickness=3)
+
+            people_flow_history.append({
+                'FrameNumber': frame_id,  # id of the current frame
+                'ScreenCoords': box.int().tolist(),  # x,y,h,w
+                'SceneCoords': bird_coords,  # real_x1,real_x2
+                'Velocity': velocity,  # pix/s
+                'Orientation': orientation  # radians
+            })
+        frame_id += 1
+        print('CAM' + str(stream_id) + ',' + str(frame_id) + ': ' + str(len(results[0])) + 'pax')
+
+        if len(people_flow_history) % history_save_interval == 0:
+            people_flow_df = pd.DataFrame(people_flow_history)
+            people_flow_df.to_csv('PeopleFlowHistory_' + str(stream_id) + '.csv', mode='a', header=False, index=False)
+            people_flow_history = []
+
+        if save:
+            writer.write(annotated_frame)
+            writer_map.write(bird_map_written)
+
+        # Uncomment to see the unwrapped image
+        if show:
+            # frame_warped = cv2.warpPerspective(frame, perspective_matrix, (600,800))
+            # cv2.imshow('Video', frame_warped) # Uncomment to see bird perspective image
+            cv2.imshow('Camera view', annotated_frame)
+            # cv2.imshow('Map', bird_map_written)  # Uncomment so see the map
+
+            if cv2.waitKey(1) & 0xFF == ord('q'): break
 
     # Release video sources
-    video.release()
+    cap.release()
 
 
 # Load the models
-model1 = YOLO('yolov8n.pt')
-model2 = YOLO('yolov8n-seg.pt')
-
+model1 = YOLO('yolov8n-pose.pt')
+model2 = YOLO('yolov8n-pose.pt')
 # Define the video files for the trackers
-video_file1 = "TestVideos/camkitchen_rec1.mp4"  # Path to video file, 0 for webcam
-video_file2 = "TestVideos/camkitchen_rec2.mp4" # Path to video file, 0 for webcam, 1 for external camera
+video_file1 = "TestVideos/Inetum_cam1.mov"  # Path to video file, 0 for webcam
+video_file2 = "TestVideos/Inetum_cam1.mov"  # Path to video file, 0 for webcam, 1 for external camera
 
 # Create the tracker threads
-tracker_thread1 = threading.Thread(target=run_tracker_in_thread, args=(video_file1, model1, 1), daemon=True)
+tracker_thread1 = threading.Thread(target=run_tracker_in_thread, args=(video_file1, model1, 1, False, True), daemon=True)
 tracker_thread2 = threading.Thread(target=run_tracker_in_thread, args=(video_file2, model2, 2), daemon=True)
 
 # Start the tracker threads

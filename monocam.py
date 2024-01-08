@@ -1,6 +1,7 @@
 from collections import defaultdict
 import numpy as np
 import math
+import yaml
 import csv
 import pandas as pd
 import cv2
@@ -8,36 +9,54 @@ from ultralytics import YOLO
 
 from Calibrator import SceneCalibration
 
+# Init the track history
+track_history = defaultdict(lambda: [])
+track_history_warped = defaultdict(lambda: [])
+
 # Options
 SHOW = True
 SAVE = False
+CALLIBRATE = True
+UNDISTORT = True
 dt = 20  # frames
 history_save_interval = (30*60)  # Save every minute (1800 frames)
 
 # Load the YOLov8 model
 model = YOLO('yolov8n-pose.pt')  # load a pretrained model (recommended for training)
 
-source = 'TestVideos/Inetum_cam2.mov'
+source = 'TestVideos/camkitchen_rec2.mp4'
+
 cap = cv2.VideoCapture(source)
-width, height, fps = int(cap.get(3)), int(cap.get(4)), cap.get(5)
+frame_size, fps = (int(cap.get(3)), int(cap.get(4))), cap.get(5)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-writer = cv2.VideoWriter('Demo.mp4', fourcc, fps, (width, height))
+writer = cv2.VideoWriter('Demo.mp4', fourcc, fps, frame_size)
 writer_map = cv2.VideoWriter('Demo_map.mp4', fourcc, fps, (600, 600))
 
 # Load the map
 #  bird_map = cv2.imread('LivingLab_2D.png')
 #  bird_map = cv2.resize(bird_map, (600, 600))
 
-# Store the track history
-track_history = defaultdict(lambda: [])
-track_history_warped = defaultdict(lambda: [])
+# Load fisheye camera calibration variables
+with open('calibration_camkitchen_results.yaml', 'r') as file:
+    fisheye_correction = yaml.safe_load(file)
 
-# Scene calibration
+r_vecs = fisheye_correction['PARAMETERS']['EXTRINSIC']['rotation_vectors']
+t_vecs = fisheye_correction['PARAMETERS']['EXTRINSIC']['translation_vectors']
+mtx = np.array(fisheye_correction['PARAMETERS']['INTRINSIC']['calibration_matrix'])
+dist = np.array(fisheye_correction['PARAMETERS']['INTRINSIC']['distortion_coefficients'])
+ret = fisheye_correction['PARAMETERS']['INTRINSIC']['RET']
+
+# Scene and camera calibration
 success, first_frame = cap.read()
 if not success:
     print('Error while loading calibration frame')
     exit()
-first_frame = cv2.resize(first_frame, (1280, 720), interpolation=cv2.INTER_LINEAR)
+'''
+new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, frame_size, 1, frame_size)
+x, y, w, h = roi
+first_frame = cv2.undistort(first_frame, mtx, dist, None, new_camera_mtx)
+first_frame = first_frame[y:y+h, x:x+w]
+'''
 
 Calibration = SceneCalibration(first_frame.copy())
 perspective_matrix = Calibration.perspective_matrix
@@ -62,14 +81,13 @@ while cap.isOpened():
     success, frame = cap.read()
     if not success: break
 
-    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+    frame = cv2.resize(frame, frame_size, interpolation=cv2.INTER_LINEAR)
 
     cv2.line(frame, Calibration.points[0], Calibration.points[1], (255, 0, 255), 2)
     cv2.line(frame, Calibration.points[0], Calibration.points[2], (255, 0, 255), 2)
     cv2.line(frame, Calibration.points[2], Calibration.points[3], (255, 0, 255), 2)
     cv2.line(frame, Calibration.points[3], Calibration.points[1], (255, 0, 255), 2)
 
-    # results = model.predict(frame, classes=[0, 15])  # predict on an image3
     results = model.track(frame, persist=True)
 
     # Get the boxes and track IDs

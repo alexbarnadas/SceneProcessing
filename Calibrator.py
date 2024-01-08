@@ -1,14 +1,15 @@
 import cv2
 import numpy as np
+import yaml
 
 
-class SceneCalibration():
-    def __init__(self, img):
+class SceneCalibration:
+    def __init__(self, img, mat=None):
         self.img = img
 
-        self.points = [] # Must be clicked
+        self.points = []  # Must be clicked
         self.real_w2d_proportion = 1
-        self.perspective_matrix = None 
+        self.perspective_matrix = mat
         self.bird_view = None
 
         self.get_input()
@@ -17,7 +18,7 @@ class SceneCalibration():
 
     def get_input(self):
         cv2.namedWindow("image", cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty("image",cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+        cv2.setWindowProperty("image", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.imshow('image', self.img)
 
         cv2.setMouseCallback('image', self.click_event)
@@ -59,6 +60,15 @@ class SceneCalibration():
     def scene2real(self, x, y):
         transposed_coordinates = np.dot(self.perspective_matrix, np.array([x, y, 1]).T)
         return transposed_coordinates  # (x,y,scale)
+
+    def store_calibration(self, name):
+        matrix = yaml.safe_load(self.perspective_matrix)
+
+        with open('perspective_matrixes.yaml', 'w') as file:
+            yaml.dump(matrix, file)
+
+        print(open('names.yaml').read())
+
 
 if __name__ == "__main__":
     f = cv2.VideoCapture('./Terraza.MOV')
