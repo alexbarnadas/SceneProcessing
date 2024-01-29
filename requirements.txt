@@ -1,6 +1,8 @@
-ultralytics~=8.0.216
-opencv-python~=4.8.1.78
-numpy~=1.26.2
+ultralytics
+opencv-python
+numpy
 #vpi ~=2.3
-pandas~=2.1.3
+pandas
+PyYAML
 kafka-python
+deepface

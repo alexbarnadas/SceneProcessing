@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from camera_functions import *
 
 from kafka import KafkaProducer
@@ -21,7 +21,7 @@ class KafkaMessager:
             THE_ONLY_TOPIC='mqtt-odin-platform-alertsystem-control-kafka'
         )
 
-    def send_message(self, client, camera_id, incident, t_stamp):
+    def send_message(self, camera_id, incident, t_stamp=datetime.now()):
         producer = KafkaProducer(bootstrap_servers=self.bootstrap_servers)
 
         alert = self.incidents[incident]
@@ -64,3 +64,6 @@ class KafkaMessager:
 
 
 kfk = KafkaMessager()
+
+
+

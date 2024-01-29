@@ -22,7 +22,7 @@ dt = 20  # frames
 history_save_interval = (30*60)  # Save every minute (1800 frames)
 
 # Load the YOLov8 model
-model = YOLO('yolov8n-pose.pt')  # load a pretrained model (recommended for training)
+model = YOLO('Models/yolov8n-pose.pt')  # load a pretrained model (recommended for training)
 
 source = 'TestVideos/camkitchen_rec2.mp4'
 
