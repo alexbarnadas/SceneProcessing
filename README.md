@@ -1,12 +1,18 @@
-# YOLOv8_Extrinsic
-A proof of concept of an Extrinsic transformation of the detections in an object detection application.
+# Scene Procerssing
+
+Extrinsic transformation of the detections in an object detection application. With multiple cameras parallel processing. This project is made for the pilot use case in SERMAS for the ODIN project from the Horizon2020.
 
 Assumptions: The camera is still and in a low abrupt angle.
 
-Instructions:
-1. Run yolov8 detector, the first frame of the input video will apperar.
+## Camera calibration
+1. The first frame of the input video will apperar.
 2. Click accurately in a squared area of the scene framed
 3. Press esc
+
+## Run Scene understanding
+1. Specify the IP adresses of the cameras to be processed in real time in the main.py script.
+2. Specify the conditions of the alerts in alerts.py.
+3. Run main.py
 
 The video will reproduce and also a window with the bird view coordinates of the detections will be drawn.
 
