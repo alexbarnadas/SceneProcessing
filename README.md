@@ -4,6 +4,12 @@ Extrinsic transformation of the detections in an object detection application. W
 
 Assumptions: The camera is still and in a low abrupt angle.
 
+## Installation
+`python -m venv venv`
+
+`pip install -r requirements.txt`
+And you are ready to run main.py.
+
 ## Camera calibration
 1. The first frame of the input video will apperar.
 2. Click accurately in a squared area of the scene framed
