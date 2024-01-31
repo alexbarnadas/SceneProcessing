@@ -7,7 +7,7 @@ import pandas as pd
 import cv2
 from ultralytics import YOLO
 
-from Calibrator import SceneCalibration
+from calibrator import SceneCalibration
 
 # Init the track history
 track_history = defaultdict(lambda: [])

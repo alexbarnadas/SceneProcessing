@@ -3,7 +3,7 @@ import cv2
 
 
 def get_cameras_list():
-    camlist = [
+    cam_list = [
         "192.168.1.11",
         "192.168.1.12",
         "192.168.1.13",
@@ -16,7 +16,7 @@ def get_cameras_list():
         "192.168.1.20"
     ]
 
-    return camlist
+    return cam_list
 
 
 def get_camera_index(camera_name):
