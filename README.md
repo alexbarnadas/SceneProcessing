@@ -8,6 +8,7 @@ Assumptions: The camera is still and in a low abrupt angle.
 `python -m venv venv`
 
 `pip install -r requirements.txt`
+
 And you are ready to run main.py.
 
 ## Camera calibration
