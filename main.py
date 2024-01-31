@@ -18,9 +18,11 @@ def main():
         "192.168.1.19",
         "192.168.1.20"
     ]
+    # Example
+    camera_list = [0]  # Delete
 
-    camera_list = [f"0"]
-    moddels = []
+    models = dict()
+    tracker_threads = []
 
     for camera_IP in camera_list:
         print(camera_IP)
@@ -29,7 +31,7 @@ def main():
 
         # Create the tracker threads
         tracker_thread = threading.Thread(target=run_tracker_in_thread,
-                                          args=(video_file1, models[camera_IP], 1, False, True),
+                                          args=(camera_IP, models[camera_IP], 1, False, True),
                                           daemon=True, )
         tracker_threads.append(tracker_thread)
 
