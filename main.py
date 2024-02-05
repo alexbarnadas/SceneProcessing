@@ -2,42 +2,43 @@ import threading
 from ultralytics import YOLO
 from multicam import *
 from camera_functions import *
+from calibrator import *
 
 
-def main():
+def main(calibration_needed = False):
     # Define the video sources for the trackers
-    camera_list = [
-        "192.168.1.11",
-        "192.168.1.12",
-        "192.168.1.13",
-        "192.168.1.14",
-        "192.168.1.15",
-        "192.168.1.16",
-        "192.168.1.17",
-        "192.168.1.18",
-        "192.168.1.19",
-        "192.168.1.20"
-    ]
-    # Example
-    camera_list = [0]  # Delete
+    camera_list = get_cameras_list()
 
-    models = dict()
+    # Examples, delete in the future ############
+    camera_list = [0]
+    camera_list = ['TestVideos/Inetum_cam1.mov',
+                   'TestVideos/Inetum_cam2.mov',
+                   '']
+    #############################################
+
     tracker_threads = []
+    people_in_scene = []
 
-    for camera_IP in camera_list:
-        print(camera_IP)
-        # Load the models
-        models[camera_IP] = YOLO('Models/yolov8n-pose.pt')
+    if calibration_needed:
+        perspective_matrixes = []
+        for camera_ip in camera_list:
+            calibration = calibrate(camera_ip, 1)
+            perspective_matrixes.append(calibration.perspective_matrix)
+
+    for camera_id in range(len(camera_list)):
+        camera = camera_list[camera_id]
+        print('Loaded stream ' + camera)
 
         # Create the tracker threads
         tracker_thread = threading.Thread(target=run_tracker_in_thread,
-                                          args=(camera_IP, models[camera_IP], 1, False, True),
-                                          daemon=True, )
+                                          args=(camera, camera_id, 20, False, False),
+                                          daemon=False, )
+        # Start the tracker threads, and stack it
+        tracker_thread.start()
         tracker_threads.append(tracker_thread)
 
-        # Start the tracker threads
-        tracker_thread.start()
-
+    join = True
+    if join:
         # Wait for the tracker threads to finish
         for tracker_thread in tracker_threads:
             tracker_thread.join()

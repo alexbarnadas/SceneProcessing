@@ -12,9 +12,9 @@ class KafkaMessager:
 
         self.incidents = {
             'MAX_OCCUPATION': 'La ocupación ha llegado a su límite en la sala.',
-            'PEAK_PREDICTED': '¡ATENCIÓN! se prevé un pico de ocupación durante la próxima hora.',
             'CHAOS_PREDICTED': '¡ATENCIÓN! No es posible una evacuación ordenada.',
-            'GENERAL_WARNING': 'Incidencia detectada.'
+            'GENERAL_WARNING': 'Incidencia detectada.',
+            'PEAK_PREDICTED': '¡ATENCIÓN! se prevé un pico de ocupación durante la próxima hora.'  # To be implemented
         }
 
         self.topics = dict(

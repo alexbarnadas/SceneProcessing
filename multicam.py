@@ -1,5 +1,6 @@
 from collections import defaultdict
 import threading
+from datetime import datetime
 import numpy as np
 import math
 import yaml
@@ -7,16 +8,17 @@ import csv
 import cv2
 import pandas as pd
 from ultralytics import YOLO
-from calibrator import SceneCalibration
+from calibrator import *
+# from alerts import KafkaMessager
 
-
+# kfk = KafkaMessager()
 dt = 20  # number of frames to calculate mean velocity
 history_save_interval = (10 * 30)  # Save every 10 seconds at 30 fps (300 frames)
 
 # reid_stack = []  # Stack all detections so reid can be performed.
 
 
-def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
+def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=False):
     """
     Runs a video file or webcam stream concurrently with the YOLOv8 model using threading.
 
@@ -25,7 +27,6 @@ def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
 
     Args:
         source (str): The path to the video file or the identifier for the webcam/external camera source.
-        model (obj): The YOLOv8 model object.
         stream_id (int): An index to uniquely identify the file being processed, used for display purposes.
 
 
@@ -38,6 +39,10 @@ def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
     """
     track_history = defaultdict(lambda: [])
     track_history_warped = defaultdict(lambda: [])
+    people_in_camera = 0
+    global people_in_scene
+
+    model = YOLO('Models/yolov8n-pose.pt')
 
     cap = cv2.VideoCapture(source)
     frame_size, fps = (int(cap.get(3)), int(cap.get(4))), cap.get(5)
@@ -69,20 +74,29 @@ def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
 
     frame_id = 0
     while cap.isOpened():
-        if frame_id > 1200: break
         success, frame = cap.read()
         if not success: break
 
         frame = cv2.resize(frame, frame_size, interpolation=cv2.INTER_LINEAR)
 
         # Run YOLOv8 tracking on the frame, persisting tracks between frames
-        results = model.track(frame, persist=True, verbose=False, stream=True, tracker="bytetrack.yaml", half=True)
-        #                     imgsz=1920, save_txt=True, save_conf=True, save=True, conf=0.25, iou=0.5)
+        result_generator = model.track(frame,
+                                       persist=True,
+                                       verbose=False,
+                                       stream=True,
+                                       tracker="bytetrack.yaml",
+                                       half=True)
+        #  imgsz=1920, save_txt=True, save_conf=True, save=True, conf=0.25, iou=0.5)   # Other possible parameters
 
         # Get the boxes and track IDs
-        for result in results:
+        for result in result_generator:
             # Visualize the results on the frame
             annotated_frame = result.plot()
+            people_in_camera = len(result)
+
+            if people_in_camera > max_occupation:
+                # kfk.send_message(stream_id, 'MAX_OCCUPATION', datetime.now())
+                continue
 
             if result.boxes.id is not None:
                 boxes = result.boxes.xywh.cpu()
@@ -157,9 +171,9 @@ def run_tracker_in_thread(source, model, stream_id, save=False, show=False):
                     'Velocity': velocity,  # pix/s
                     'Orientation': orientation  # radians
                 })
-        del results
+
         frame_id += 1
-        print('CAM' + str(stream_id) + ',' + str(frame_id) + ': ' + str(len(result)) + 'pax')
+        print('CAM' + str(stream_id) + ',' + str(frame_id) + ': ' + str(people_in_camera) + 'pax')
 
 #        if len(people_flow_history) % history_save_interval == 0:
 #            people_flow_df = pd.DataFrame(people_flow_history)
@@ -194,7 +208,8 @@ if __name__ == "__main__":
     video_file2 = "TestVideos/Inetum_cam1.mov"  # Path to video file, 0 for webcam, 1 for external camera
 
     # Create the tracker threads
-    tracker_thread1 = threading.Thread(target=run_tracker_in_thread, args=(video_file1, model1, 1, False, True),
+    tracker_thread1 = threading.Thread(target=run_tracker_in_thread,
+                                       args=(video_file1, 1, 1, False, True),
                                        daemon=True, )
     # tracker_thread2 = threading.Thread(target=run_tracker_in_thread, args=(video_file2, model2, 2), daemon=True)
 
