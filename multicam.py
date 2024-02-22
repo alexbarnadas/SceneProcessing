@@ -15,8 +15,6 @@ from calibrator import *
 dt = 20  # number of frames to calculate mean velocity
 history_save_interval = (10 * 30)  # Save every 10 seconds at 30 fps (300 frames)
 
-# reid_stack = []  # Stack all detections so reid can be performed.
-
 
 def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=False):
     """
@@ -28,6 +26,7 @@ def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=Fa
     Args:
         source (str): The path to the video file or the identifier for the webcam/external camera source.
         stream_id (int): An index to uniquely identify the file being processed, used for display purposes.
+        max_occupation (int)
 
 
     Note:
@@ -37,10 +36,12 @@ def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=Fa
         Allow show multiple windows:
         https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
     """
+    
     track_history = defaultdict(lambda: [])
     track_history_warped = defaultdict(lambda: [])
-    people_in_camera = 0
-    global people_in_scene
+    pax_history = []
+    interval = 90
+    global mean_framed_pax
 
     model = YOLO('Models/yolov8n-pose.pt')
 
@@ -92,9 +93,14 @@ def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=Fa
         for result in result_generator:
             # Visualize the results on the frame
             annotated_frame = result.plot()
-            people_in_camera = len(result)
+            pax_framed = len(result)
 
-            if people_in_camera > max_occupation:
+            pax_history.append(pax_framed)
+            if len(pax_history) > interval:
+                pax_history.pop(0)
+                avg_pax_history = sum(pax_history)/interval
+                mean_framed_pax[stream_id] = avg_pax_history
+            if pax_framed > max_occupation:
                 # kfk.send_message(stream_id, 'MAX_OCCUPATION', datetime.now())
                 continue
 
@@ -173,7 +179,7 @@ def run_tracker_in_thread(source, stream_id, max_occupation, save=False, show=Fa
                 })
 
         frame_id += 1
-        print('CAM' + str(stream_id) + ',' + str(frame_id) + ': ' + str(people_in_camera) + 'pax')
+        print('CAM' + str(stream_id) + ',' + str(frame_id) + ': ' + str(pax_framed) + 'pax')
 
 #        if len(people_flow_history) % history_save_interval == 0:
 #            people_flow_df = pd.DataFrame(people_flow_history)

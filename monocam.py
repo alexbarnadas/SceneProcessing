@@ -31,34 +31,34 @@ frame_size, fps = (int(cap.get(3)), int(cap.get(4))), cap.get(5)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 writer = cv2.VideoWriter('Demo.mp4', fourcc, fps, frame_size)
 writer_map = cv2.VideoWriter('Demo_map.mp4', fourcc, fps, (600, 600))
-
 # Load the map
 #  bird_map = cv2.imread('LivingLab_2D.png')
 #  bird_map = cv2.resize(bird_map, (600, 600))
 
 # Load fisheye camera calibration variables
-with open('calibration_camkitchen_results.yaml', 'r') as file:
-    fisheye_correction = yaml.safe_load(file)
+with open('calibration_camkitchen_results_good.yaml', 'r') as file:
+    fisheye_correction = yaml.load(file, Loader=yaml.FullLoader)
 
-r_vecs = fisheye_correction['PARAMETERS']['EXTRINSIC']['rotation_vectors']
-t_vecs = fisheye_correction['PARAMETERS']['EXTRINSIC']['translation_vectors']
 mtx = np.array(fisheye_correction['PARAMETERS']['INTRINSIC']['calibration_matrix'])
-dist = np.array(fisheye_correction['PARAMETERS']['INTRINSIC']['distortion_coefficients'])
-ret = fisheye_correction['PARAMETERS']['INTRINSIC']['RET']
+dist = np.array(fisheye_correction['PARAMETERS']['INTRINSIC']['distortion_coefficients'][0])
 
 # Scene and camera calibration
 success, first_frame = cap.read()
+h, w = first_frame.shape[:2]
+cv2.imwrite('first_frame.jpg', first_frame)
 if not success:
     print('Error while loading calibration frame')
     exit()
-'''
-new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, frame_size, 1, frame_size)
-x, y, w, h = roi
-first_frame = cv2.undistort(first_frame, mtx, dist, None, new_camera_mtx)
-first_frame = first_frame[y:y+h, x:x+w]
-'''
 
-Calibration = SceneCalibration(first_frame.copy())
+new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+undistorted_frame = cv2.undistort(first_frame, mtx, dist, None, new_camera_mtx)
+x, y, w, h = roi
+
+undistorted_frame = undistorted_frame[y:y+h, x:x+w]
+
+cv2.imshow('Undistorted Frame', undistorted_frame)
+
+Calibration = SceneCalibration(undistorted_frame.copy())
 perspective_matrix = Calibration.perspective_matrix
 print(perspective_matrix)
 

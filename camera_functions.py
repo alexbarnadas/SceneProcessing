@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import time
 
 
 def get_cameras_list():
@@ -17,7 +18,54 @@ def get_cameras_list():
     ]
 
     return cam_list
+def get_sources():
+    cameras = get_cameras_list()
+    rtsp_username = "ODIN"
+    rtsp_password = "**********"
+    rtsp_stream_type = "m"  # Use "u" for unicast, "m" for multicast
+    rtsp_stream_path = "defaultSecondary"
+    # Use "defaultPrimary" for primary stream (provided by Avigilon Control Center),
+    # "defaultSecondary" for secondary stream, or "defaultTertiary" for tertiary stream
+    # Build the RTSP URL with the parameters
 
+    sources = []
+    for i in range(len(cameras)):
+        rtsp_ip = cameras[i]
+        sources.append(f"rtsp://{rtsp_username}:{rtsp_password}@{rtsp_ip}/rtsp/{rtsp_stream_path}?streamType={rtsp_stream_type}")
+
+def resize_dual_camera_image(source_url):
+    cap = cv2.VideoCapture(source_url)
+    if not cap.isOpened():
+        #return None
+        return source_url  # Cannot open source, do nothing
+
+    # Defines the new dimensions
+    new_width = 768
+    new_height = 432
+
+    frames = []
+    frame_count = 0  # Processed frames counter
+    out_url = f"output_{int(time.time())}.avi"  # Unique file name based on the timestamp
+
+    while frame_count < 100:  # Limits to process only 100 frames as an example
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame = cv2.resize(frame, (new_width, new_height))
+        frames.append(frame)
+        frame_count += 1
+
+    cap.release()
+
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter(out_url, fourcc, 25.0, (new_width, new_height))
+
+    for frame in frames:
+        out.write(frame)
+
+    out.release()
+
+    return out_url  # Returns the URL of the resized font
 
 def get_camera_index(camera_name):
 
