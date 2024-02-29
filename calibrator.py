@@ -38,6 +38,11 @@ class SceneCalibration:
             print(x, ' ', y)
             self.points.append([x, y])
             if len(self.points) == 4:
+
+                cv2.line(self.img, self.points[0], self.points[1], (255, 0, 255), 2)
+                cv2.line(self.img, self.points[0], self.points[2], (255, 0, 255), 2)
+                cv2.line(self.img, self.points[2], self.points[3], (255, 0, 255), 2)
+                cv2.line(self.img, self.points[3], self.points[1], (255, 0, 255), 2)
                 self.get_perspective()
 
             font = cv2.FONT_HERSHEY_SIMPLEX
